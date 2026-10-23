@@ -9,13 +9,14 @@ var inputDocument = PdfReader.Open(pathToHandouts, PdfDocumentOpenMode.Import);
 var teamsList = new List<int>{};
 
 var height = XUnit.FromInch(3.66).Point;
+var calculatedPageCount = (int)Math.Ceiling(teamsList.Count / 3.0);
 for (var i = 0; i < inputDocument.PageCount; i++)
 {
   var page = inputDocument.Pages[i];
 
   for (var j = 0; j < 3; j++)
   {
-    var teamIndex = i * 3 + j;
+    var teamIndex = i + j * calculatedPageCount;
     if (teamIndex >= teamsList.Count) continue;
 
     var outputDocument = new PdfDocument

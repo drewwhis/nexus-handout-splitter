@@ -22,13 +22,17 @@ public abstract class Program
   {
     PdfSharpLicense.SetAgplLicense();
     var teamNumbers = (await GetFtcTeamList()).ToList();
-    if (!teamNumbers.Any())
+    if (teamNumbers.Count == 0)
     {
       Console.WriteLine("No teams found");
       return;
     }
     
     CreateHandouts(teamNumbers);
+    foreach (var teamNumber in teamNumbers)
+    {
+      Console.WriteLine(teamNumber);
+    }
   }
 
   private static async Task<IEnumerable<int>> GetFtcTeamList()

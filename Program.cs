@@ -14,14 +14,14 @@ public abstract class Program
 {
   private const string HandoutsFileName = "2026usalorq_handouts.pdf";
   private const string EventCode = "USALORQ";
-  private const string BaseUrl = "https://ftc-api.firstinspires.org";
-  private const int Season = 2026;
-  private const string CredentialsFile = "../../../secrets/FTC_API_KEY.txt";
+  private const string BaseUrlFtc = "https://ftc-api.firstinspires.org";
+  private const int FirstSeason = 2027;
+  private const string FtcCredentialsFile = "../../../secrets/FTC_API_KEY.txt";
 
   public static async Task Main()
   {
     PdfSharpLicense.SetAgplLicense();
-    var teamNumbers = (await GetTeamsList()).ToList();
+    var teamNumbers = (await GetFtcTeamList()).ToList();
     if (!teamNumbers.Any())
     {
       Console.WriteLine("No teams found");
@@ -31,12 +31,12 @@ public abstract class Program
     CreateHandouts(teamNumbers);
   }
 
-  private static async Task<IEnumerable<int>> GetTeamsList()
+  private static async Task<IEnumerable<int>> GetFtcTeamList()
   {
     using var client = new HttpClient();
-    client.BaseAddress = new Uri(BaseUrl);
+    client.BaseAddress = new Uri(BaseUrlFtc);
 
-    var endpoint = $"v2.0/{Season}/teams";
+    var endpoint = $"v2.0/{FirstSeason - 1}/teams";
     var queryParams = new Dictionary<string, string?>
     {
       ["eventCode"] = EventCode,
@@ -46,7 +46,7 @@ public abstract class Program
     string credentials;
     try
     {
-      credentials = await File.ReadAllTextAsync(CredentialsFile);
+      credentials = await File.ReadAllTextAsync(FtcCredentialsFile);
     }
     catch (Exception ex)
     {

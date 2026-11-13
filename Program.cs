@@ -1,26 +1,26 @@
 ﻿using pdf_split.API;
+using PdfSharp;
 
 namespace pdf_split;
 
 using System.Net.Http.Json;
 using System.Text;
 using Microsoft.AspNetCore.WebUtilities;
-
-// See https://aka.ms/new-console-template for more information
 using PdfSharp.Drawing;
 using PdfSharp.Pdf;
 using PdfSharp.Pdf.IO;
 
 public abstract class Program
 {
-  private const string PathToHandouts = "";
+  private const string HandoutsFileName = "2026usalorq_handouts.pdf";
   private const string EventCode = "USALORQ";
   private const string BaseUrl = "https://ftc-api.firstinspires.org";
   private const int Season = 2026;
-  private const string CredentialsFile = "./secrets/FTC_API_KEY.txt";
+  private const string CredentialsFile = "../../../secrets/FTC_API_KEY.txt";
 
   public static async Task Main()
   {
+    PdfSharpLicense.SetAgplLicense();
     var teamNumbers = (await GetTeamsList()).ToList();
     if (!teamNumbers.Any())
     {
@@ -48,8 +48,9 @@ public abstract class Program
     {
       credentials = await File.ReadAllTextAsync(CredentialsFile);
     }
-    catch
+    catch (Exception ex)
     {
+      Console.WriteLine(ex.Message);
       return [];
     }
     
@@ -72,8 +73,8 @@ public abstract class Program
   private static void CreateHandouts(IEnumerable<int> teams)
   {
     var teamsList = teams.ToList();
-    var inputDocument = PdfReader.Open(PathToHandouts, PdfDocumentOpenMode.Import);
-    var height = XUnit.FromInch(3.66).Point;
+    var inputDocument = PdfReader.Open($"../../../{HandoutsFileName}", PdfDocumentOpenMode.Import);
+    var height = XUnit.FromInch(3.66);
     var calculatedPageCount = (int)Math.Ceiling(teamsList.Count / 3.0);
     for (var i = 0; i < inputDocument.PageCount; i++)
     {
@@ -92,13 +93,13 @@ public abstract class Program
         outputDocument.Info.Creator = inputDocument.Info.Creator;
 
         page.CropBox = new PdfRectangle(
-            new XPoint(0, page.Height - height * (j + 1)),
-            new XSize(page.Width, height)
+            new XPoint(0, page.Height.Point - height.Point * (j + 1)),
+            new XSize(page.Width.Point, height.Point)
         );
 
         // Add the page and save it
         outputDocument.AddPage(inputDocument.Pages[i]);
-        outputDocument.Save($"Team_{teamsList[teamIndex]}.pdf");
+        outputDocument.Save($"../../../Team_{teamsList[teamIndex]}.pdf");
       }
     }
   }

@@ -1,4 +1,5 @@
-﻿using pdf_split.API;
+﻿using System.CommandLine;
+using pdf_split.API;
 using PdfSharp;
 
 namespace pdf_split;
@@ -12,45 +13,123 @@ using PdfSharp.Pdf.IO;
 
 public abstract class Program
 {
-  private const string HandoutsFileName = "2026usalorq_handouts.pdf";
-  private const string EventCode = "USALORQ";
   private const string BaseUrlFtc = "https://ftc-api.firstinspires.org";
-  private const int FirstSeason = 2027;
-  private const string FtcCredentialsFile = "../../../secrets/FTC_API_KEY.txt";
+  private const string BaseUrlFrc = "https://frc-api.firstinspires.org";
+  private const string FtcCredentialsFile = "./secrets/FTC_API_KEY.txt";
+  private const string FrcCredentialsFile = "./secrets/FRC_API_KEY.txt";
 
-  public static async Task Main()
+  public static async Task Main(string[] args)
   {
     PdfSharpLicense.SetAgplLicense();
-    var teamNumbers = (await GetFtcTeamList()).ToList();
-    if (teamNumbers.Count == 0)
+
+    RootCommand command = new("Split Nexus handouts");
+    Option<FileInfo> fileOption = new("--file", "-f")
     {
-      Console.WriteLine("No teams found");
-      return;
-    }
+      Description = "The Nexus handouts file",
+      Required = true
+    };
     
-    CreateHandouts(teamNumbers);
-    foreach (var teamNumber in teamNumbers)
+    Option<string> eventCodeOption = new("--event", "-e")
     {
-      Console.WriteLine(teamNumber);
-    }
+      Description = "The event code",
+      Required = true
+    };
+
+    Option<string> programOption = new("--program", "-p")
+    {
+      Description = "The program code (FRC, FTC)",
+      Required = true
+    };
+
+    Option<int> firstSeasonOption = new("--firstseason", "-s")
+    {
+      Description = "The season year of the FIRST season",
+      Required = true
+    };
+    
+    command.Options.Add(fileOption);
+    command.Options.Add(eventCodeOption);
+    command.Options.Add(programOption);
+    command.Options.Add(firstSeasonOption);
+
+    command.SetAction(async parseResult =>
+    {
+      var file = parseResult.GetValue(fileOption);
+      if (file is null)
+      {
+        Console.WriteLine($"No Nexus handouts file found");
+        return 1;
+      }
+      
+      var eventCode = parseResult.GetValue(eventCodeOption);
+      if (string.IsNullOrWhiteSpace(eventCode))
+      {
+        Console.WriteLine($"No event code specified");
+        return 2;
+      }
+      
+      var programCode = parseResult.GetValue(programOption)?.ToUpperInvariant();
+      if (string.IsNullOrWhiteSpace(programCode))
+      {
+        Console.WriteLine($"No program code specified");
+        return 3;
+      }
+
+      if (programCode != "FRC" && programCode != "FTC")
+      {
+        Console.WriteLine($"Invalid program code specified {programCode}");
+        return 3;
+      }
+      
+      var season =  parseResult.GetValue(firstSeasonOption);
+      if (season < 2027)
+      {
+        Console.WriteLine($"Season {season} is invalid");
+        return 4;
+      }
+      
+      var teamNumbers = (await GetTeamList(programCode, season, eventCode)).ToList();
+      if (teamNumbers.Count == 0)
+      {
+        Console.WriteLine("No teams found");
+        return 5;
+      }
+      
+      CreateHandouts(teamNumbers, file.FullName);
+      
+      foreach (var teamNumber in teamNumbers)
+      {
+        Console.WriteLine(teamNumber);
+      }
+
+      return 0;
+    });
+    
+    await command.Parse(args).InvokeAsync();
   }
 
-  private static async Task<IEnumerable<int>> GetFtcTeamList()
+  private static async Task<IEnumerable<int>> GetTeamList(string programCode, int firstSeason, string eventCode)
   {
+    var isFrc = programCode == "FRC";
+    var version = isFrc ? 3 : 2;
+    var season = isFrc ? firstSeason : firstSeason - 1;
+    var baseUrl = isFrc ? BaseUrlFrc : BaseUrlFtc;
+    var credentialPath = isFrc ? FrcCredentialsFile : FtcCredentialsFile;
+    
     using var client = new HttpClient();
-    client.BaseAddress = new Uri(BaseUrlFtc);
+    client.BaseAddress = new Uri(baseUrl);
 
-    var endpoint = $"v2.0/{FirstSeason - 1}/teams";
+    var endpoint = $"v{version}.0/{season}/teams";
     var queryParams = new Dictionary<string, string?>
     {
-      ["eventCode"] = EventCode,
+      ["eventCode"] = eventCode,
     };
     var url = QueryHelpers.AddQueryString(endpoint, queryParams);
 
     string credentials;
     try
     {
-      credentials = await File.ReadAllTextAsync(FtcCredentialsFile);
+      credentials = await File.ReadAllTextAsync(credentialPath);
     }
     catch (Exception ex)
     {
@@ -73,11 +152,11 @@ public abstract class Program
 
     return [];
   }
-
-  private static void CreateHandouts(IEnumerable<int> teams)
+  
+  private static void CreateHandouts(IEnumerable<int> teams, string filePath)
   {
     var teamsList = teams.ToList();
-    var inputDocument = PdfReader.Open($"../../../{HandoutsFileName}", PdfDocumentOpenMode.Import);
+    var inputDocument = PdfReader.Open(filePath, PdfDocumentOpenMode.Import);
     var height = XUnit.FromInch(3.66);
     var calculatedPageCount = (int)Math.Ceiling(teamsList.Count / 3.0);
     for (var i = 0; i < inputDocument.PageCount; i++)
@@ -103,7 +182,7 @@ public abstract class Program
 
         // Add the page and save it
         outputDocument.AddPage(inputDocument.Pages[i]);
-        outputDocument.Save($"../../../Team_{teamsList[teamIndex]}.pdf");
+        outputDocument.Save($"Team_{teamsList[teamIndex]}.pdf");
       }
     }
   }

@@ -11,6 +11,12 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="10.0.15" />
     <PackageReference Include="PDFsharp" Version="6.5.0" />
+    <PackageReference Include="System.CommandLine" Version="3.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="API\FRC\" />
+    <Folder Include="API\FTC\" />
   </ItemGroup>
 
 </Project>
